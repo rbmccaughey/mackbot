@@ -45,20 +45,29 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="bg-slate-900 border-b border-slate-800">
-        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/mackbot.png" alt="mackbot" className="w-20 h-20 object-contain" />
+      <header className="relative bg-gradient-to-b from-slate-800 to-slate-900 shadow-2xl shadow-black/40">
+        <div className="max-w-2xl mx-auto px-6 py-0 flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            <img
+              src="/mackbot.png"
+              alt="mackbot"
+              className="w-36 h-36 object-contain drop-shadow-[0_0_16px_rgba(16,185,129,0.35)]"
+            />
             <div>
-              <h1 className="text-sm font-semibold text-white leading-none">mackbot</h1>
-              <p className="text-xs text-slate-500 mt-0.5 leading-none">Kananaskis tee time scanner</p>
+              <h1 className="text-2xl text-white tracking-wide" style={{ fontFamily: "'Bitcount Grid Single', monospace", fontWeight: 700 }}>MackBot</h1>
+              <p className="text-xs text-slate-400 mt-1" style={{ fontFamily: "'Space Mono', monospace" }}>snagging tee times so you don't have to</p>
             </div>
           </div>
-          <div className={`flex items-center gap-1.5 text-xs font-medium ${serverError ? 'text-red-400' : 'text-emerald-400'}`}>
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${
+            serverError
+              ? 'bg-red-500/10 border-red-500/25 text-red-400'
+              : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400'
+          }`}>
             <span className={`w-1.5 h-1.5 rounded-full ${serverError ? 'bg-red-400' : 'bg-emerald-400 animate-pulse'}`} />
             {serverError ? 'Disconnected' : 'Live'}
           </div>
         </div>
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
       </header>
 
       <main className="max-w-2xl mx-auto px-4 py-8 space-y-8">

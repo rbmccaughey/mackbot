@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import type { CreateScanPayload } from '../types'
+import DatePicker from './DatePicker'
+import TimePicker from './TimePicker'
 
 const SITES = {
   kananaskis: {
@@ -113,14 +115,10 @@ export default function CreateScanForm({ onSubmit }: { onSubmit: (p: CreateScanP
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Date</label>
-            <input
-              type="date"
+            <DatePicker
               value={date}
+              onChange={setDate}
               min={new Date().toISOString().slice(0, 10)}
-              onChange={e => setDate(e.target.value)}
-              required
-              className={inputClass}
-              style={{ colorScheme: 'dark' }}
             />
           </div>
           <div>
@@ -141,25 +139,11 @@ export default function CreateScanForm({ onSubmit }: { onSubmit: (p: CreateScanP
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>Earliest tee time</label>
-            <input
-              type="time"
-              value={timeFrom}
-              onChange={e => setTimeFrom(e.target.value)}
-              required
-              className={inputClass}
-              style={{ colorScheme: 'dark' }}
-            />
+            <TimePicker value={timeFrom} onChange={setTimeFrom} />
           </div>
           <div>
             <label className={labelClass}>Latest tee time</label>
-            <input
-              type="time"
-              value={timeTo}
-              onChange={e => setTimeTo(e.target.value)}
-              required
-              className={inputClass}
-              style={{ colorScheme: 'dark' }}
-            />
+            <TimePicker value={timeTo} onChange={setTimeTo} />
           </div>
         </div>
 
