@@ -66,22 +66,30 @@ Scans are in-memory only — they are lost on server restart. Each scan's `log` 
 The site uses **IdentityServer OIDC** + **Cloudflare**. Direct HTTP requests return 403. The auth flow:
 
 1. Playwright launches a visible Chrome window (`headless=False`) to pass Cloudflare
-2. Logs in via the OIDC form at `/onlineresweb/auth/login`
-3. Extracts the JWT from localStorage key: `oidc.user:https://kananaskisabresidents.cps.golf/identityapi:js1`
-4. Falls back to sessionStorage or a localStorage key scan if the primary key is missing
-5. Saves `cf_clearance` and `V4COOKIE` cookies for reuse in httpx calls
-6. JWT (`client_id=js1`) lasts **1 hour** — `Session.is_expired()` triggers re-auth automatically; the browser reopens
+2. Visits root domain first to obtain `cf_clearance`, then navigates to `/onlineresweb/auth/verify-email`
+3. Two-step login: email first, then password on next page
+4. Extracts the JWT from localStorage keys: `online-reservation-v5-access_token` and `online-reservation-v5-expires_at`
+5. Saves `cf_clearance` and other cookies for reuse in httpx calls
+6. JWT lasts **1 hour** — `Session.is_expired()` triggers re-auth automatically; the browser reopens
 
 User identity (`golfer_id`, `acct`) is parsed from the JWT claims on every login, not hardcoded.
 
 ## Booking flow
 
-`booker.py` runs four API calls in sequence:
+`booker.py` uses a hybrid browser + API approach:
 
-1. `CheckBookingLimit` — verify the account hasn't hit a reservation cap
-2. `LockTeeTimes` — temporarily holds the slot; returns a `locked_session_id` UUID
-3. `RegisterTransactionId` — registers a fresh transaction UUID with the server
-4. `ReserveTeeTimes` — final confirmation; card on file is charged server-side (all `creditCardInfo` fields in the payload are null)
+1. `CheckBookingLimit` — fast-fail if the account has hit a reservation cap
+2. `LockTeeTimes` — lock the slot (called before navigating to checkout, matching the real browser flow where the SPA calls this from the search page)
+3. `page.goto(checkout_url)` — park the Playwright browser on `/teetime/checkout?id=...` so all subsequent `fetch()` calls carry the correct `Referer` header
+4. `TeeTimePricesCalculation` — server creates a pricing session and returns a `transactionId` (used as `bookingTransactionId` in ReserveTeeTimes)
+5. `CheckRestrictReservation` — restriction check
+6. `GetAllCreditCardOnFile` — fetch Moneris card-on-file token
+7. `RegisterTransactionId` — register a fresh UUID; this UUID becomes `transactionId` in ReserveTeeTimes
+8. `ReserveTeeTimes` — final confirmation; card on file is charged server-side
+
+**Critical UUID mapping** (field names are counterintuitive):
+- `ReserveTeeTimes.transactionId` = fresh UUID from `RegisterTransactionId`
+- `ReserveTeeTimes.bookingTransactionId` = UUID returned by `TeeTimePricesCalculation`
 
 ## Key API endpoints
 

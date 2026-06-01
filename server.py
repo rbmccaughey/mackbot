@@ -23,7 +23,7 @@ from pydantic import BaseModel
 from auth import Session, login
 from api import search_tee_times
 from booker import book_slot
-from config import BookingConfig
+from config import BookingConfig, SITES, KANANASKIS
 from notifier import notify
 from scanner import find_matching_slots, slot_summary
 
@@ -47,8 +47,9 @@ class CreateScanRequest(BaseModel):
     time_from: str
     time_to: str
     players: int = 4
-    courses: list[int] = [1, 2]
+    courses: list[int] = []
     interval: int = 300
+    site: str = "kananaskis"
 
 
 def _hour(t: str) -> float:
@@ -61,15 +62,17 @@ def _log(scan_id: str, msg: str) -> None:
     _scans[scan_id]["log"].append(f"[{ts}] {msg}")
 
 
-def _run_scan(scan_id: str, email: str, password: str) -> None:
+def _run_scan(scan_id: str, email: str, password: str, site_key: str) -> None:
     scan = _scans[scan_id]
     stop: threading.Event = scan["_stop"]
+    site = SITES.get(site_key, KANANASKIS)
     cfg = BookingConfig(
         target_date=date.fromisoformat(scan["date"]),
+        site=site,
         time_min_hour=_hour(scan["time_from"]),
         time_max_hour=_hour(scan["time_to"]),
         num_players=scan["players"],
-        course_ids=scan["courses"],
+        course_ids=scan["courses"] or list(site.course_ids),
         poll_interval_secs=scan["interval"],
     )
 
@@ -77,13 +80,17 @@ def _run_scan(scan_id: str, email: str, password: str) -> None:
 
     while not stop.is_set():
         try:
-            if not session or session.is_expired():
+            if not session:
                 _log(scan_id, "Authenticating…")
-                session = login(email, password)
+                session = login(email, password, site)
+            elif session.is_expired():
+                _log(scan_id, "Token expired — refreshing in existing browser…")
+                session.refresh(email, password)
 
-            slots = search_tee_times(
+            slots, _ = search_tee_times(
                 session, cfg.target_date, cfg.num_players,
                 cfg.time_min_hour, cfg.time_max_hour,
+                course_ids=cfg.course_ids,
             )
             matches = find_matching_slots(slots, cfg)
 
@@ -93,13 +100,15 @@ def _run_scan(scan_id: str, email: str, password: str) -> None:
                 scan["status"] = "found"
                 notify("Tee time found!", f"{slot_summary(best)} — booking now")
 
-                if book_slot(session, best, cfg.num_players, email):
-                    _log(scan_id, f"Booked: {slot_summary(best)}")
+                ok, msg = book_slot(session, best, cfg.num_players, email)
+                if ok:
+                    _log(scan_id, msg)
                     scan["status"] = "booked"
                     notify("Tee time booked!", slot_summary(best))
+                    session.close()
                     return
                 else:
-                    _log(scan_id, "Booking failed — will retry next poll")
+                    _log(scan_id, f"Booking failed: {msg}")
                     scan["status"] = "scanning"
             else:
                 _log(
@@ -109,12 +118,16 @@ def _run_scan(scan_id: str, email: str, password: str) -> None:
 
         except Exception as exc:
             _log(scan_id, f"Error: {exc}")
+            if session:
+                session.close()
             session = None
 
         stop.wait(cfg.poll_interval_secs)
 
     scan["status"] = "cancelled"
     _log(scan_id, "Scan cancelled.")
+    if session:
+        session.close()
 
 
 def _public(scan: dict) -> dict:
@@ -123,16 +136,18 @@ def _public(scan: dict) -> dict:
 
 @app.post("/scans", status_code=201)
 def create_scan(req: CreateScanRequest) -> dict:
-    email = os.environ.get("GOLF_EMAIL")
-    password = os.environ.get("GOLF_PASSWORD")
+    site = SITES.get(req.site, KANANASKIS)
+    email = os.environ.get(site.email_env)
+    password = os.environ.get(site.password_env)
     if not email or not password:
-        raise HTTPException(400, "GOLF_EMAIL and GOLF_PASSWORD must be set in .env")
+        raise HTTPException(400, f"{site.email_env} and {site.password_env} must be set in .env")
 
     scan_id = str(uuid.uuid4())[:8]
     stop = threading.Event()
 
     _scans[scan_id] = {
         "id": scan_id,
+        "site": req.site,
         "date": req.date,
         "time_from": req.time_from,
         "time_to": req.time_to,
@@ -147,7 +162,7 @@ def create_scan(req: CreateScanRequest) -> dict:
 
     threading.Thread(
         target=_run_scan,
-        args=(scan_id, email, password),
+        args=(scan_id, email, password, req.site),
         daemon=True,
     ).start()
 

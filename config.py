@@ -3,38 +3,67 @@ from datetime import date
 
 
 @dataclass
+class SiteConfig:
+    name: str
+    base_url: str
+    website_id: str
+    header_site_id: str      # x-siteid request header
+    payload_site_id: int     # siteId in CheckRestrictReservation body
+    class_code: str
+    member_store_id: int
+    course_ids: list[int]    # all courses available on this site
+    email_env: str           # env var name for login email
+    password_env: str        # env var name for login password
+    requires_payment: bool = True
+    deposit_amount: int = 0  # per-player deposit in dollars
+
+
+KANANASKIS = SiteConfig(
+    name="Kananaskis",
+    base_url="https://kananaskisabresidents.cps.golf",
+    website_id="ed189e3e-c873-4785-6262-08d8fddc05d5",
+    header_site_id="2",
+    payload_site_id=2,
+    class_code="ABRES",
+    member_store_id=2,
+    course_ids=[1, 2],  # 1=Mt Lorette, 2=Mt Kidd
+    email_env="GOLF_EMAIL",
+    password_env="GOLF_PASSWORD",
+    requires_payment=True,
+    deposit_amount=35,
+)
+
+CALGARY = SiteConfig(
+    name="Calgary",
+    base_url="https://cityofcalgarygolf.cps.golf",
+    website_id="f4cd6968-3078-4e3f-9fdf-08dbc69b5717",
+    header_site_id="1",
+    payload_site_id=4,
+    class_code="ADGF",
+    member_store_id=1,
+    course_ids=[1, 2, 3, 4, 5, 6, 7, 8, 11, 12],
+    email_env="CALGARY_GOLF_EMAIL",
+    password_env="CALGARY_GOLF_PASSWORD",
+    requires_payment=False,
+    deposit_amount=0,
+)
+
+SITES: dict[str, SiteConfig] = {
+    "kananaskis": KANANASKIS,
+    "calgary": CALGARY,
+}
+
+
+@dataclass
 class BookingConfig:
     target_date: date
+    site: SiteConfig
     time_min_hour: float = 8.0
     time_max_hour: float = 10.0
     num_players: int = 4
-    # 1 = Mt Lorette, 2 = Mt Kidd. Empty list means any course.
-    course_ids: list[int] = field(default_factory=lambda: [1, 2])
+    course_ids: list[int] = field(default_factory=list)
     poll_interval_secs: int = 300
 
-
-# Static headers sent on every API request
-API_HEADERS = {
-    "x-componentid": "1",
-    "x-ismobile": "false",
-    "x-moduleid": "7",
-    "x-productid": "1",
-    "x-siteid": "2",
-    "x-terminalid": "3",
-    "x-timezone-offset": "360",
-    "x-timezoneid": "America/Edmonton",
-    "x-websiteid": "ed189e3e-c873-4785-6262-08d8fddc05d5",
-    "client-id": "onlineresweb",
-    "cache-control": "no-cache, no-store, must-revalidate",
-    "pragma": "no-cache",
-    "expires": "Sat, 01 Jan 2000 00:00:00 GMT",
-    "if-modified-since": "0",
-}
-
-BASE_URL = "https://kananaskisabresidents.cps.golf"
-API_BASE = f"{BASE_URL}/onlineres/onlineapi/api/v1/onlinereservation"
-
-# User-specific constants extracted from JWT claims
-CLASS_CODE = "ABRES"
-MEMBER_STORE_ID = 2
-COURSE_IDS_PARAM = "2,1"
+    def __post_init__(self):
+        if not self.course_ids:
+            self.course_ids = list(self.site.course_ids)

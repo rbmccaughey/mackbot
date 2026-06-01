@@ -44,43 +44,64 @@ export default function App() {
   const doneScans = scans.filter(s => s.status === 'booked' || s.status === 'cancelled' || s.status === 'failed')
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-green-800 text-white px-6 py-5">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-2xl font-bold tracking-tight">mackbot</h1>
-          <p className="text-green-300 text-sm mt-0.5">Kananaskis tee time scanner</p>
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <header className="bg-slate-900 border-b border-slate-800">
+        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/mackbot.png" alt="mackbot" className="w-20 h-20 object-contain" />
+            <div>
+              <h1 className="text-sm font-semibold text-white leading-none">mackbot</h1>
+              <p className="text-xs text-slate-500 mt-0.5 leading-none">Kananaskis tee time scanner</p>
+            </div>
+          </div>
+          <div className={`flex items-center gap-1.5 text-xs font-medium ${serverError ? 'text-red-400' : 'text-emerald-400'}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${serverError ? 'bg-red-400' : 'bg-emerald-400 animate-pulse'}`} />
+            {serverError ? 'Disconnected' : 'Live'}
+          </div>
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-2xl mx-auto px-4 py-8 space-y-8">
         {serverError && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-            Cannot reach the server — make sure <code className="font-mono text-xs bg-red-100 px-1 rounded">uvicorn server:app --reload</code> is running.
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl px-4 py-3 flex items-start gap-2.5">
+            <span className="mt-0.5 shrink-0">⚠</span>
+            <span>
+              Cannot reach the server — make sure{' '}
+              <code className="font-mono text-xs bg-red-500/15 px-1.5 py-0.5 rounded">uvicorn server:app --reload</code>{' '}
+              is running.
+            </span>
           </div>
         )}
 
         <CreateScanForm onSubmit={createScan} />
 
         {activeScans.length > 0 && (
-          <section>
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Active</h2>
-            <div className="space-y-3">
-              {activeScans.map(s => <ScanCard key={s.id} scan={s} onCancel={cancelScan} />)}
+          <section className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">Active</span>
+              <span className="flex-1 h-px bg-slate-800" />
+              <span className="text-xs text-slate-500">{activeScans.length}</span>
             </div>
+            {activeScans.map(s => <ScanCard key={s.id} scan={s} onCancel={cancelScan} />)}
           </section>
         )}
 
         {doneScans.length > 0 && (
-          <section>
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Completed</h2>
-            <div className="space-y-3">
-              {doneScans.map(s => <ScanCard key={s.id} scan={s} onCancel={cancelScan} />)}
+          <section className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">Completed</span>
+              <span className="flex-1 h-px bg-slate-800" />
+              <span className="text-xs text-slate-500">{doneScans.length}</span>
             </div>
+            {doneScans.map(s => <ScanCard key={s.id} scan={s} onCancel={cancelScan} />)}
           </section>
         )}
 
         {!serverError && scans.length === 0 && (
-          <p className="text-center text-gray-400 py-12 text-sm">No scans yet.</p>
+          <div className="text-center py-16">
+            <div className="text-4xl mb-3 select-none">🏌️</div>
+            <p className="text-slate-500 text-sm">No scans yet. Create one above.</p>
+          </div>
         )}
       </main>
     </div>

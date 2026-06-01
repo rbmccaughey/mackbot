@@ -2,6 +2,7 @@ export type ScanStatus = 'scanning' | 'found' | 'booked' | 'failed' | 'cancelled
 
 export interface Scan {
   id: string
+  site: string
   date: string
   time_from: string
   time_to: string
@@ -20,4 +21,5 @@ export interface CreateScanPayload {
   players: number
   courses: number[]
   interval: number
+  site: string
 }

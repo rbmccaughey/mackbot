@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/scans': 'http://localhost:8000',
+      '/scans': process.env.API_URL ?? 'http://localhost:8000',
     },
   },
 })
