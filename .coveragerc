@@ -1,12 +1,12 @@
 [run]
 omit =
-    debug_intercept.py
-    debug_intercept_calgary.py
-    debug_intercept_valleyridge.py
+    debug/*
     main.py
-    auth.py
-    auth_vr.py
-    api.py
+    cps/auth.py
+    cps/api.py
+    courses/valley_ridge/auth.py
+    courses/kananaskis/__init__.py
+    courses/calgary/__init__.py
     notifier.py
     tests/*
 

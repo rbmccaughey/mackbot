@@ -20,15 +20,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from auth import Session, login
-from api import search_tee_times
-from booker import book_slot
+from cps.auth import Session, login
+from cps.api import search_tee_times
+from cps.booker import book_slot
 from config import BookingConfig, SITES, KANANASKIS
 from notifier import notify
-from scanner import find_matching_slots, slot_summary
-from api_vr import search_tee_times_vr, check_holds_vr
-from auth_vr import VRSession, login_vr
-from booker_vr import book_slot_vr, slot_summary_vr
+from cps.scanner import find_matching_slots, slot_summary
+from courses.valley_ridge.api import search_tee_times_vr
+from courses.valley_ridge.auth import VRSession, login_vr
+from courses.valley_ridge.booker import book_slot_vr, slot_summary_vr
 
 load_dotenv()
 

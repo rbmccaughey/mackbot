@@ -16,13 +16,13 @@ Key UUID mapping (counterintuitive field names):
 
 import time
 
-from api import (
+from cps.api import (
     check_booking_limit, lock_tee_time, reserve_tee_times,
     get_tee_time_detail, tee_time_prices_calculation, check_restrict_reservation,
     register_transaction_id, get_credit_cards_on_file,
 )
-from auth import Session
-from scanner import slot_summary
+from cps.auth import Session
+from cps.scanner import slot_summary
 
 
 def book_slot(session: Session, slot: dict, num_players: int, email: str) -> tuple[bool, str]:

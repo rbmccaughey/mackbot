@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from api_vr import search_tee_times_vr, find_booking_option, _find_user_payment_type
+from courses.valley_ridge.api import search_tee_times_vr, find_booking_option, _find_user_payment_type
 
 
 def make_vr_slot(teedatetime, available_spots=4, available_18=True):
@@ -26,42 +26,42 @@ def mock_httpx_response(slots):
 class TestSearchTeeTimes:
     def test_returns_matching_slots(self):
         slots = [make_vr_slot("2026-06-15T09:00:00")]
-        with patch("api_vr.httpx.get", return_value=mock_httpx_response(slots)):
+        with patch("courses.valley_ridge.api.httpx.get", return_value=mock_httpx_response(slots)):
             result = search_tee_times_vr(date(2026, 6, 15), 4, 8.0, 10.0)
         assert len(result) == 1
 
     def test_empty_response_returns_empty(self):
-        with patch("api_vr.httpx.get", return_value=mock_httpx_response([])):
+        with patch("courses.valley_ridge.api.httpx.get", return_value=mock_httpx_response([])):
             result = search_tee_times_vr(date(2026, 6, 15), 4, 8.0, 10.0)
         assert result == []
 
     def test_filters_slot_before_time_min(self):
         slots = [make_vr_slot("2026-06-15T07:59:00"), make_vr_slot("2026-06-15T09:00:00")]
-        with patch("api_vr.httpx.get", return_value=mock_httpx_response(slots)):
+        with patch("courses.valley_ridge.api.httpx.get", return_value=mock_httpx_response(slots)):
             result = search_tee_times_vr(date(2026, 6, 15), 4, 8.0, 10.0)
         assert len(result) == 1
 
     def test_filters_slot_at_time_max(self):
         slots = [make_vr_slot("2026-06-15T10:00:00"), make_vr_slot("2026-06-15T09:00:00")]
-        with patch("api_vr.httpx.get", return_value=mock_httpx_response(slots)):
+        with patch("courses.valley_ridge.api.httpx.get", return_value=mock_httpx_response(slots)):
             result = search_tee_times_vr(date(2026, 6, 15), 4, 8.0, 10.0)
         assert len(result) == 1
 
     def test_filters_insufficient_available_spots(self):
         slots = [make_vr_slot("2026-06-15T09:00:00", available_spots=2)]
-        with patch("api_vr.httpx.get", return_value=mock_httpx_response(slots)):
+        with patch("courses.valley_ridge.api.httpx.get", return_value=mock_httpx_response(slots)):
             result = search_tee_times_vr(date(2026, 6, 15), 4, 8.0, 10.0)
         assert result == []
 
     def test_exact_available_spots_matches(self):
         slots = [make_vr_slot("2026-06-15T09:00:00", available_spots=4)]
-        with patch("api_vr.httpx.get", return_value=mock_httpx_response(slots)):
+        with patch("courses.valley_ridge.api.httpx.get", return_value=mock_httpx_response(slots)):
             result = search_tee_times_vr(date(2026, 6, 15), 4, 8.0, 10.0)
         assert len(result) == 1
 
     def test_filters_unavailable_18_holes(self):
         slots = [make_vr_slot("2026-06-15T09:00:00", available_18=False)]
-        with patch("api_vr.httpx.get", return_value=mock_httpx_response(slots)):
+        with patch("courses.valley_ridge.api.httpx.get", return_value=mock_httpx_response(slots)):
             result = search_tee_times_vr(date(2026, 6, 15), 4, 8.0, 10.0)
         assert result == []
 
@@ -72,7 +72,7 @@ class TestSearchTeeTimes:
             make_vr_slot("2026-06-15T09:00:00", available_spots=4, available_18=False),  # no 18h
             make_vr_slot("2026-06-15T11:00:00", available_spots=4, available_18=True),   # outside window
         ]
-        with patch("api_vr.httpx.get", return_value=mock_httpx_response(slots)):
+        with patch("courses.valley_ridge.api.httpx.get", return_value=mock_httpx_response(slots)):
             result = search_tee_times_vr(date(2026, 6, 15), 4, 8.0, 10.0)
         assert len(result) == 1
 
@@ -157,8 +157,8 @@ class TestCheckHoldsVR:
         mock_resp = MagicMock()
         mock_resp.json.return_value = {"success": "teetime available", "hold": None}
         mock_resp.raise_for_status = MagicMock()
-        with patch("api_vr.httpx.get", return_value=mock_resp) as mock_get:
-            from api_vr import check_holds_vr
+        with patch("courses.valley_ridge.api.httpx.get", return_value=mock_resp) as mock_get:
+            from courses.valley_ridge.api import check_holds_vr
             result = check_holds_vr(2001)
         assert result == {"success": "teetime available", "hold": None}
         mock_get.assert_called_once()
@@ -166,8 +166,8 @@ class TestCheckHoldsVR:
     def test_raises_on_http_error(self):
         mock_resp = MagicMock()
         mock_resp.raise_for_status.side_effect = Exception("404 Not Found")
-        with patch("api_vr.httpx.get", return_value=mock_resp):
-            from api_vr import check_holds_vr
+        with patch("courses.valley_ridge.api.httpx.get", return_value=mock_resp):
+            from courses.valley_ridge.api import check_holds_vr
             with pytest.raises(Exception, match="404"):
                 check_holds_vr(9999)
 

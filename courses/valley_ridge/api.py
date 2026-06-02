@@ -12,7 +12,7 @@ from datetime import date, datetime
 
 import httpx
 
-from auth_vr import VRSession
+from courses.valley_ridge.auth import VRSession
 
 BASE_URL = "https://valleyridgegolf.teetimes.totalclubunity.com"
 _XHR_HEADERS = {"X-Requested-With": "XMLHttpRequest"}
@@ -198,7 +198,6 @@ def _find_user_payment_type(details: dict) -> int | None:
     Look for the user's payment_type_id in the teetimedetails response.
     Checks common field paths used by TotalClub Unity.
     """
-    # Common locations to check
     for path in (
         ("user", "payment_type_id"),
         ("user", "payment_type", "id"),

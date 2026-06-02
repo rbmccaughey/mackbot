@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from config import BookingConfig, KANANASKIS
-from scanner import find_matching_slots, slot_summary
+from cps.scanner import find_matching_slots, slot_summary
 
 
 def make_slot(start_time, available_players, booking_list=None, course_id=1):
