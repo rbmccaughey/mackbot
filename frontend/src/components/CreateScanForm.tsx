@@ -26,6 +26,12 @@ const SITES = {
       { id: 8, name: 'Shaganappi Back 9' },
     ],
   },
+  valley_ridge: {
+    label: 'Valley Ridge',
+    courses: [
+      { id: 1, name: 'Valley Ridge' },
+    ],
+  },
 }
 
 type SiteKey = keyof typeof SITES
