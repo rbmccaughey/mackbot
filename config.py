@@ -15,7 +15,8 @@ class SiteConfig:
     email_env: str           # env var name for login email
     password_env: str        # env var name for login password
     requires_payment: bool = True
-    deposit_amount: int = 0  # per-player deposit in dollars
+    deposit_amount: int = 0
+    platform: str = "cps"  # "cps" = Club Prophet Systems, "tcu" = TotalClub Unity  # per-player deposit in dollars
 
 
 KANANASKIS = SiteConfig(
@@ -48,9 +49,26 @@ CALGARY = SiteConfig(
     deposit_amount=0,
 )
 
+VALLEY_RIDGE = SiteConfig(
+    name="Valley Ridge",
+    base_url="https://valleyridgegolf.teetimes.totalclubunity.com",
+    website_id="",
+    header_site_id="",
+    payload_site_id=0,
+    class_code="",
+    member_store_id=0,
+    course_ids=[1],
+    email_env="VR_GOLF_EMAIL",
+    password_env="VR_GOLF_PASSWORD",
+    requires_payment=False,
+    deposit_amount=0,
+    platform="tcu",
+)
+
 SITES: dict[str, SiteConfig] = {
     "kananaskis": KANANASKIS,
     "calgary": CALGARY,
+    "valley_ridge": VALLEY_RIDGE,
 }
 
 

@@ -26,6 +26,9 @@ from booker import book_slot
 from config import BookingConfig, SITES, KANANASKIS
 from notifier import notify
 from scanner import find_matching_slots, slot_summary
+from api_vr import search_tee_times_vr, check_holds_vr
+from auth_vr import VRSession, login_vr
+from booker_vr import book_slot_vr, slot_summary_vr
 
 load_dotenv()
 
@@ -60,6 +63,61 @@ def _hour(t: str) -> float:
 def _log(scan_id: str, msg: str) -> None:
     ts = datetime.now().strftime("%H:%M:%S")
     _scans[scan_id]["log"].append(f"[{ts}] {msg}")
+
+
+def _run_scan_vr(scan_id: str, email: str, password: str) -> None:
+    scan = _scans[scan_id]
+    stop: threading.Event = scan["_stop"]
+    time_min = _hour(scan["time_from"])
+    time_max = _hour(scan["time_to"])
+    num_players = scan["players"]
+    target_date = date.fromisoformat(scan["date"])
+    poll_interval = scan["interval"]
+
+    session: VRSession | None = None
+
+    while not stop.is_set():
+        try:
+            slots = search_tee_times_vr(target_date, num_players, time_min, time_max)
+
+            if slots:
+                best = slots[0]
+                _log(scan_id, f"{len(slots)} slot(s) found — booking {slot_summary_vr(best)}")
+                scan["status"] = "found"
+                notify("Tee time found!", f"{slot_summary_vr(best)} — booking now")
+
+                if not session:
+                    _log(scan_id, "Authenticating…")
+                    session = login_vr(email, password)
+
+                ok, msg = book_slot_vr(session, best, num_players)
+                if ok:
+                    _log(scan_id, msg)
+                    scan["status"] = "booked"
+                    notify("Tee time booked!", slot_summary_vr(best))
+                    session.close()
+                    return
+                else:
+                    _log(scan_id, f"Booking failed: {msg}")
+                    scan["status"] = "scanning"
+                    if session:
+                        session.close()
+                    session = None
+            else:
+                _log(scan_id, f"No matches. Next in {poll_interval}s.")
+
+        except Exception as exc:
+            _log(scan_id, f"Error: {exc}")
+            if session:
+                session.close()
+            session = None
+
+        stop.wait(poll_interval)
+
+    scan["status"] = "cancelled"
+    _log(scan_id, "Scan cancelled.")
+    if session:
+        session.close()
 
 
 def _run_scan(scan_id: str, email: str, password: str, site_key: str) -> None:
@@ -160,11 +218,14 @@ def create_scan(req: CreateScanRequest) -> dict:
         "_stop": stop,
     }
 
-    threading.Thread(
-        target=_run_scan,
-        args=(scan_id, email, password, req.site),
-        daemon=True,
-    ).start()
+    if site.platform == "tcu":
+        target_fn = _run_scan_vr
+        thread_args = (scan_id, email, password)
+    else:
+        target_fn = _run_scan
+        thread_args = (scan_id, email, password, req.site)
+
+    threading.Thread(target=target_fn, args=thread_args, daemon=True).start()
 
     return _public(_scans[scan_id])
 
