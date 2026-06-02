@@ -10,13 +10,13 @@ Valley Ridge Golf (TotalClub Unity) booking chain:
 
 from datetime import datetime
 
-from api_vr import (
+from courses.valley_ridge.api import (
     check_holds_vr,
     get_teetime_details_vr,
     find_booking_option,
     book_teetime_vr,
 )
-from auth_vr import VRSession
+from courses.valley_ridge.auth import VRSession
 
 BASE_URL = "https://valleyridgegolf.teetimes.totalclubunity.com"
 

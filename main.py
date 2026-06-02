@@ -16,12 +16,12 @@ from datetime import date, datetime
 
 from dotenv import load_dotenv
 
-from auth import Session, login
-from booker import book_slot
+from cps.auth import Session, login
+from cps.booker import book_slot
 from config import BookingConfig, SITES, KANANASKIS
-from api import search_tee_times
+from cps.api import search_tee_times
 from notifier import notify
-from scanner import find_matching_slots, slot_summary
+from cps.scanner import find_matching_slots, slot_summary
 
 load_dotenv()
 

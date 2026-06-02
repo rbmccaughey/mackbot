@@ -8,7 +8,7 @@ import json
 import uuid
 from datetime import date
 
-from auth import Session
+from cps.auth import Session
 
 
 def _fetch(session: Session, url: str, method: str = "GET", body=None) -> dict:

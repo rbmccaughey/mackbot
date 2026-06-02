@@ -1,0 +1,16 @@
+[run]
+omit =
+    debug/*
+    main.py
+    cps/auth.py
+    cps/api.py
+    courses/valley_ridge/auth.py
+    courses/kananaskis/__init__.py
+    courses/calgary/__init__.py
+    notifier.py
+    tests/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
