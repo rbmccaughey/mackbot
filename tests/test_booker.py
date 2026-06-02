@@ -157,3 +157,128 @@ class TestBookSlot:
         ok, msg = book_slot(make_session(), make_slot(), 4, "test@test.com")
         assert ok is False
         assert "ReserveTeeTimes error" in msg
+
+    @patch("booker.time.sleep")
+    @patch("booker.register_transaction_id", return_value="tx-fresh")
+    @patch("booker.reserve_tee_times", return_value={"isSuccess": False, "message": "slot taken"})
+    @patch("booker.get_credit_cards_on_file", return_value=[{"ccToken": "tok"}])
+    @patch("booker.check_restrict_reservation", return_value={})
+    @patch("booker.tee_time_prices_calculation", return_value={"transactionId": "prices-tx"})
+    @patch("booker.get_tee_time_detail", return_value={})
+    @patch("booker.lock_tee_time", return_value=({"isSuccess": True}, "lock-id"))
+    @patch("booker.check_booking_limit", return_value={"isSuccess": True})
+    def test_fails_when_reserve_returns_not_success(
+        self, mock_limit, mock_lock, mock_detail, mock_prices,
+        mock_restrict, mock_cards, mock_reserve, mock_reg_tx, mock_sleep
+    ):
+        from booker import book_slot
+        ok, msg = book_slot(make_session(), make_slot(), 4, "test@test.com")
+        assert ok is False
+        assert "ReserveTeeTimes failed" in msg
+
+    @patch("booker.lock_tee_time", return_value=({"isSuccess": True}, "lock-id"))
+    @patch("booker.check_booking_limit", return_value={"isSuccess": True})
+    def test_fails_on_checkout_navigation_exception(self, mock_limit, mock_lock):
+        from booker import book_slot
+        session = make_session()
+        session.page.goto.side_effect = Exception("browser timeout")
+        ok, msg = book_slot(session, make_slot(), 4, "test@test.com")
+        assert ok is False
+        assert "Checkout navigation failed" in msg
+
+    @patch("booker.time.sleep")
+    @patch("booker.tee_time_prices_calculation", side_effect=Exception("server error"))
+    @patch("booker.get_tee_time_detail", return_value={})
+    @patch("booker.lock_tee_time", return_value=({"isSuccess": True}, "lock-id"))
+    @patch("booker.check_booking_limit", return_value={"isSuccess": True})
+    def test_fails_on_prices_calculation_exception(
+        self, mock_limit, mock_lock, mock_detail, mock_prices, mock_sleep
+    ):
+        from booker import book_slot
+        ok, msg = book_slot(make_session(), make_slot(), 4, "test@test.com")
+        assert ok is False
+        assert "TeeTimePricesCalculation failed" in msg
+
+    @patch("booker.time.sleep")
+    @patch("booker.get_credit_cards_on_file", side_effect=Exception("card fetch error"))
+    @patch("booker.check_restrict_reservation", return_value={})
+    @patch("booker.tee_time_prices_calculation", return_value={"transactionId": "prices-tx"})
+    @patch("booker.get_tee_time_detail", return_value={})
+    @patch("booker.lock_tee_time", return_value=({"isSuccess": True}, "lock-id"))
+    @patch("booker.check_booking_limit", return_value={"isSuccess": True})
+    def test_fails_on_card_exception(
+        self, mock_limit, mock_lock, mock_detail, mock_prices,
+        mock_restrict, mock_cards, mock_sleep
+    ):
+        from booker import book_slot
+        ok, msg = book_slot(make_session(requires_payment=True), make_slot(), 4, "test@test.com")
+        assert ok is False
+        assert "GetAllCreditCardOnFile error" in msg
+
+    @patch("booker.time.sleep")
+    @patch("booker.register_transaction_id", side_effect=Exception("register failed"))
+    @patch("booker.get_credit_cards_on_file", return_value=[{"ccToken": "tok"}])
+    @patch("booker.check_restrict_reservation", return_value={})
+    @patch("booker.tee_time_prices_calculation", return_value={"transactionId": "prices-tx"})
+    @patch("booker.get_tee_time_detail", return_value={})
+    @patch("booker.lock_tee_time", return_value=({"isSuccess": True}, "lock-id"))
+    @patch("booker.check_booking_limit", return_value={"isSuccess": True})
+    def test_fails_on_register_tx_exception(
+        self, mock_limit, mock_lock, mock_detail, mock_prices,
+        mock_restrict, mock_cards, mock_reg_tx, mock_sleep
+    ):
+        from booker import book_slot
+        ok, msg = book_slot(make_session(), make_slot(), 4, "test@test.com")
+        assert ok is False
+        assert "RegisterTransactionId error" in msg
+
+    @patch("booker.time.sleep")
+    @patch("booker.register_transaction_id", return_value="tx-fresh")
+    @patch("booker.reserve_tee_times", return_value={"isSuccess": True})
+    @patch("booker.get_credit_cards_on_file", return_value=[{"ccToken": "tok"}])
+    @patch("booker.check_restrict_reservation", side_effect=Exception("restrict error"))
+    @patch("booker.tee_time_prices_calculation", return_value={"transactionId": "prices-tx"})
+    @patch("booker.get_tee_time_detail", return_value={})
+    @patch("booker.lock_tee_time", return_value=({"isSuccess": True}, "lock-id"))
+    @patch("booker.check_booking_limit", return_value={"isSuccess": True})
+    def test_restrict_check_exception_is_non_fatal(
+        self, mock_limit, mock_lock, mock_detail, mock_prices,
+        mock_restrict, mock_cards, mock_reserve, mock_reg_tx, mock_sleep
+    ):
+        from booker import book_slot
+        ok, msg = book_slot(make_session(), make_slot(), 4, "test@test.com")
+        assert ok is True
+
+    @patch("booker.time.sleep")
+    @patch("booker.register_transaction_id", return_value="tx-fresh")
+    @patch("booker.reserve_tee_times", return_value={"isSuccess": True})
+    @patch("booker.get_credit_cards_on_file", return_value=[{"ccToken": "tok"}])
+    @patch("booker.check_restrict_reservation", return_value={})
+    @patch("booker.tee_time_prices_calculation", return_value={"transactionId": "prices-tx"})
+    @patch("booker.get_tee_time_detail", side_effect=Exception("detail fetch failed"))
+    @patch("booker.lock_tee_time", return_value=({"isSuccess": True}, "lock-id"))
+    @patch("booker.check_booking_limit", return_value={"isSuccess": True})
+    def test_tee_time_detail_exception_is_non_fatal(
+        self, mock_limit, mock_lock, mock_detail, mock_prices,
+        mock_restrict, mock_cards, mock_reserve, mock_reg_tx, mock_sleep
+    ):
+        from booker import book_slot
+        ok, msg = book_slot(make_session(), make_slot(), 4, "test@test.com")
+        assert ok is True
+
+    @patch("booker.time.sleep")
+    @patch("booker.register_transaction_id", return_value="tx-fresh")
+    @patch("booker.reserve_tee_times", return_value={"isSuccess": True})
+    @patch("booker.get_credit_cards_on_file", return_value=[{"ccToken": "tok"}])
+    @patch("booker.check_restrict_reservation", return_value={})
+    @patch("booker.tee_time_prices_calculation", return_value={"transactionId": "prices-tx"})
+    @patch("booker.get_tee_time_detail", return_value={})
+    @patch("booker.lock_tee_time", return_value=({"isSuccess": True}, "lock-id"))
+    @patch("booker.check_booking_limit", side_effect=Exception("network error"))
+    def test_booking_limit_exception_is_silenced(
+        self, mock_limit, mock_lock, mock_detail, mock_prices,
+        mock_restrict, mock_cards, mock_reserve, mock_reg_tx, mock_sleep
+    ):
+        from booker import book_slot
+        ok, msg = book_slot(make_session(), make_slot(), 4, "test@test.com")
+        assert ok is True

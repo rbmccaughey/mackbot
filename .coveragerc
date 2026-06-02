@@ -1,0 +1,16 @@
+[run]
+omit =
+    debug_intercept.py
+    debug_intercept_calgary.py
+    debug_intercept_valleyridge.py
+    main.py
+    auth.py
+    auth_vr.py
+    api.py
+    notifier.py
+    tests/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:

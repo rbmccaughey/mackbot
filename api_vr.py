@@ -77,7 +77,7 @@ def check_holds_vr(teetime_id: int) -> dict:
 # Authenticated (requires VRSession)
 # ---------------------------------------------------------------------------
 
-def _browser_fetch(session: VRSession, url: str) -> dict:
+def _browser_fetch(session: VRSession, url: str) -> dict:  # pragma: no cover
     """GET via the Playwright browser so session cookies are included."""
     result = session.page.evaluate(
         """async (url) => {
@@ -94,7 +94,7 @@ def _browser_fetch(session: VRSession, url: str) -> dict:
     return json.loads(result["body"])
 
 
-def get_teetime_details_vr(session: VRSession, teetime_id: int) -> tuple[dict, str]:
+def get_teetime_details_vr(session: VRSession, teetime_id: int) -> tuple[dict, str]:  # pragma: no cover
     """
     Fetch user-specific tee time details (authenticated).
     Returns (parsed_dict, raw_json_string).
@@ -221,7 +221,7 @@ def _find_user_payment_type(details: dict) -> int | None:
     return None
 
 
-def book_teetime_vr(
+def book_teetime_vr(  # pragma: no cover
     session: VRSession,
     teetime_id: int,
     booking_option_id: int,

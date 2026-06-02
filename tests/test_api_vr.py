@@ -129,6 +129,17 @@ class TestFindBookingOption:
         _, _, parent_id = find_booking_option(details, json.dumps(details))
         assert parent_id == 99
 
+    def test_fallback_handles_non_numeric_price_total(self):
+        # Exercises the TypeError/ValueError except branch in _price()
+        candidates = [
+            make_candidate(1, 10, price_total=None),   # None → except → 9999.0
+            make_candidate(2, 20, price_total="30"),
+        ]
+        details = {"options": candidates}
+        booking_id, pt_id, _ = find_booking_option(details, json.dumps(details))
+        assert booking_id == 2
+        assert pt_id == 20
+
     def test_env_var_override_falls_through_when_not_found(self, monkeypatch):
         monkeypatch.setenv("VR_PAYMENT_TYPE_ID", "999")
         candidates = [
@@ -139,6 +150,26 @@ class TestFindBookingOption:
         # Env var 999 not found → falls through to lowest price
         booking_id, pt_id, _ = find_booking_option(details, json.dumps(details))
         assert pt_id == 20
+
+
+class TestCheckHoldsVR:
+    def test_returns_json_response(self):
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {"success": "teetime available", "hold": None}
+        mock_resp.raise_for_status = MagicMock()
+        with patch("api_vr.httpx.get", return_value=mock_resp) as mock_get:
+            from api_vr import check_holds_vr
+            result = check_holds_vr(2001)
+        assert result == {"success": "teetime available", "hold": None}
+        mock_get.assert_called_once()
+
+    def test_raises_on_http_error(self):
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status.side_effect = Exception("404 Not Found")
+        with patch("api_vr.httpx.get", return_value=mock_resp):
+            from api_vr import check_holds_vr
+            with pytest.raises(Exception, match="404"):
+                check_holds_vr(9999)
 
 
 class TestFindUserPaymentType:
