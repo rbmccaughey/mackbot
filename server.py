@@ -24,7 +24,7 @@ from cps.auth import Session, login
 from cps.api import search_tee_times
 from cps.booker import book_slot
 from config import BookingConfig, SITES, KANANASKIS
-from notifier import notify
+from notifier import notify, email_alert
 from cps.scanner import find_matching_slots, slot_summary
 from courses.valley_ridge.api import search_tee_times_vr
 from courses.valley_ridge.auth import VRSession, login_vr
@@ -135,6 +135,8 @@ def _run_scan(scan_id: str, email: str, password: str, site_key: str) -> None:
     )
 
     session: Session | None = None
+    consecutive_errors = 0
+    _ERROR_THRESHOLD = 3
 
     while not stop.is_set():
         try:
@@ -155,6 +157,7 @@ def _run_scan(scan_id: str, email: str, password: str, site_key: str) -> None:
                 course_ids=cfg.course_ids,
             )
             matches = find_matching_slots(slots, cfg)
+            consecutive_errors = 0
 
             if matches:
                 best = matches[0]
@@ -179,7 +182,16 @@ def _run_scan(scan_id: str, email: str, password: str, site_key: str) -> None:
                 )
 
         except Exception as exc:
-            _log(scan_id, f"Error: {exc}")
+            consecutive_errors += 1
+            _log(scan_id, f"Error ({consecutive_errors} consecutive): {exc}")
+            if consecutive_errors == _ERROR_THRESHOLD:
+                email_alert(
+                    "Scan failing — intervention may be needed",
+                    f"mackbot scan {scan_id} has failed {_ERROR_THRESHOLD} times in a row "
+                    f"scanning {site.name} for {scan['players']} players on {scan['date']}.\n\n"
+                    f"Last error: {exc}\n\n"
+                    f"Remote in and check — scanning will keep retrying.",
+                )
             if session:
                 session.close()
             session = None

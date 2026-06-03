@@ -158,6 +158,85 @@ class Session:
             pass
 
 
+def _is_cloudflare_challenge(page: Page) -> bool:
+    """Return True if the current page appears to be a Cloudflare challenge."""
+    # Element-based signals (Cloudflare rotates these IDs occasionally)
+    _CF_SELECTORS = (
+        "#challenge-running, #cf-challenge-running, #cf-wrapper, "
+        "#cf-please-wait, .cf-browser-verification, "
+        "iframe[src*='challenges.cloudflare.com']"
+    )
+    try:
+        page.wait_for_selector(_CF_SELECTORS, timeout=2_000)
+        return True
+    except Exception:
+        pass
+    # Content-based fallback — catches "Performing security verification" wording
+    try:
+        body = page.evaluate("document.body.innerText") or ""
+        return (
+            "security verification" in body.lower()
+            or "verifying you are not a bot" in body.lower()
+            or "checking your browser" in body.lower()
+        )
+    except Exception:
+        return False
+
+
+def _handle_cloudflare_challenge(page: Page, timeout_secs: int = 30) -> bool:
+    """
+    Wait for a Cloudflare challenge to resolve, optionally clicking an interactive checkbox.
+
+    Managed challenges ("Performing security verification") auto-resolve with a real
+    browser + stealth — just needs time.  Interactive Turnstile checkbox challenges are
+    attempted via frame_locator; image puzzles cannot be automated.
+
+    Returns True once cf_clearance is set or no challenge is detected.
+    """
+    if not _is_cloudflare_challenge(page):
+        return True
+
+    print("Cloudflare challenge detected — waiting for resolution…")
+
+    _CF_IFRAME = "iframe[src*='challenges.cloudflare.com']"
+
+    def _clearance_set() -> bool:
+        return any(c["name"] == "cf_clearance" for c in page.context.cookies())
+
+    for _ in range(timeout_secs):
+        time.sleep(1)
+        if _clearance_set():
+            print("Cloudflare challenge resolved.")
+            return True
+
+        # Attempt a click on the interactive checkbox if one is visible.
+        # bounding_box() on a frame_locator is relative to the iframe viewport,
+        # not the page — so we get the iframe element's page-level position for
+        # the mouse movement, then let Playwright handle the cross-frame click.
+        try:
+            frame = page.frame_locator(_CF_IFRAME).first
+            checkbox = frame.locator(
+                "input[type='checkbox'], .mark, .ctp-checkbox-label, label"
+            ).first
+            if checkbox.is_visible(timeout=500):
+                iframe_box = page.locator(_CF_IFRAME).first.bounding_box()
+                if iframe_box:
+                    page.mouse.move(random.randint(200, 700), random.randint(100, 400))
+                    time.sleep(random.uniform(0.3, 0.6))
+                    page.mouse.move(
+                        iframe_box["x"] + iframe_box["width"] / 2 + random.uniform(-8, 8),
+                        iframe_box["y"] + iframe_box["height"] / 2 + random.uniform(-4, 4),
+                    )
+                    time.sleep(random.uniform(0.15, 0.3))
+                checkbox.click()
+                print("Clicked Cloudflare checkbox.")
+        except Exception:
+            pass
+
+    print("Cloudflare challenge did not resolve automatically — manual intervention may be needed.")
+    return _clearance_set()
+
+
 def _human_click(page: Page, selector: str) -> None:
     """Drift the cursor to a random spot then move to the target before clicking."""
     page.mouse.move(random.randint(300, 900), random.randint(150, 500))
@@ -177,6 +256,7 @@ def _human_click(page: Page, selector: str) -> None:
 def _navigate_to_verify_email(page: Page, login_url: str) -> bool:
     """Navigate to verify-email, retrying if Angular redirects elsewhere or form fails to render."""
     page.goto(login_url, wait_until="domcontentloaded", timeout=30_000)
+    _handle_cloudflare_challenge(page)
     for _ in range(10):
         time.sleep(1)
         url = page.url
@@ -187,10 +267,12 @@ def _navigate_to_verify_email(page: Page, login_url: str) -> bool:
             except Exception:
                 print("verify-email URL reached but form not visible — reloading...")
                 page.reload(wait_until="domcontentloaded", timeout=30_000)
+                _handle_cloudflare_challenge(page)
                 continue
         if "/onlineresweb/" in url and "/auth/" in url and "verify-email" not in url:
             print(f"Redirected to {url.split('/')[-1]}, re-navigating to verify-email...")
             page.goto(login_url, wait_until="domcontentloaded", timeout=30_000)
+            _handle_cloudflare_challenge(page)
     return "verify-email" in page.url
 
 
@@ -267,6 +349,7 @@ def login(email: str, password: str, site: SiteConfig = KANANASKIS, headless: bo
         page.wait_for_load_state("networkidle", timeout=20_000)
     except Exception:
         pass
+    _handle_cloudflare_challenge(page)
     time.sleep(random.uniform(2.0, 3.5))
 
     # SPA auth guard will redirect to verify-email if not logged in; if it doesn't, go there directly
