@@ -48,8 +48,10 @@ def get_session(email: str, password: str, site, current: Session | None) -> Ses
         return current
     if current and current.is_expired():
         print("Token expired — refreshing in existing browser...")
-        current.refresh(email, password)
-        return current
+        if current.refresh(email, password):
+            return current
+        print("Refresh failed — closing and re-authenticating from scratch...")
+        current.close()
     print("Authenticating...")
     return login(email, password, site)
 
@@ -121,10 +123,14 @@ def main() -> None:
                 print(f"[{now}] No matching slots (checked {len(slots)} total). Next check in {cfg.poll_interval_secs}s.")
 
         except KeyboardInterrupt:
+            if session:
+                session.close()
             print("\nStopped.")
             sys.exit(0)
         except Exception as e:
             print(f"Error on attempt {attempt}: {e}")
+            if session:
+                session.close()
             session = None  # force re-auth on next loop
 
         time.sleep(cfg.poll_interval_secs)
