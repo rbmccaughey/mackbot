@@ -143,7 +143,11 @@ def _run_scan(scan_id: str, email: str, password: str, site_key: str) -> None:
                 session = login(email, password, site)
             elif session.is_expired():
                 _log(scan_id, "Token expired — refreshing in existing browser…")
-                session.refresh(email, password)
+                if not session.refresh(email, password):
+                    _log(scan_id, "Refresh failed — re-authenticating from scratch…")
+                    session.close()
+                    session = None
+                    continue
 
             slots, _ = search_tee_times(
                 session, cfg.target_date, cfg.num_players,

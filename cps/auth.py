@@ -175,13 +175,19 @@ def _human_click(page: Page, selector: str) -> None:
 
 
 def _navigate_to_verify_email(page: Page, login_url: str) -> bool:
-    """Navigate to verify-email, retrying if Angular redirects elsewhere."""
+    """Navigate to verify-email, retrying if Angular redirects elsewhere or form fails to render."""
     page.goto(login_url, wait_until="domcontentloaded", timeout=30_000)
     for _ in range(10):
         time.sleep(1)
         url = page.url
         if "verify-email" in url:
-            return True
+            try:
+                page.wait_for_selector(_EMAIL_SEL, state="visible", timeout=5_000)
+                return True
+            except Exception:
+                print("verify-email URL reached but form not visible — reloading...")
+                page.reload(wait_until="domcontentloaded", timeout=30_000)
+                continue
         if "/onlineresweb/" in url and "/auth/" in url and "verify-email" not in url:
             print(f"Redirected to {url.split('/')[-1]}, re-navigating to verify-email...")
             page.goto(login_url, wait_until="domcontentloaded", timeout=30_000)
