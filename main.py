@@ -20,7 +20,7 @@ from cps.auth import Session, login
 from cps.booker import book_slot
 from config import BookingConfig, SITES, KANANASKIS
 from cps.api import search_tee_times
-from notifier import notify
+from notifier import notify, email_alert
 from cps.scanner import find_matching_slots, slot_summary
 
 load_dotenv()
@@ -86,6 +86,8 @@ def main() -> None:
 
     session: Session | None = None
     attempt = 0
+    consecutive_errors = 0
+    _ERROR_THRESHOLD = 3
 
     while True:
         attempt += 1
@@ -103,6 +105,7 @@ def main() -> None:
 
             matches = find_matching_slots(slots, cfg)
             now = datetime.now().strftime("%H:%M:%S")
+            consecutive_errors = 0
 
             if matches:
                 print(f"\n[{now}] {len(matches)} slot(s) found!")
@@ -128,7 +131,16 @@ def main() -> None:
             print("\nStopped.")
             sys.exit(0)
         except Exception as e:
-            print(f"Error on attempt {attempt}: {e}")
+            consecutive_errors += 1
+            print(f"Error on attempt {attempt} ({consecutive_errors} consecutive): {e}")
+            if consecutive_errors == _ERROR_THRESHOLD:
+                email_alert(
+                    "Scan failing — intervention may be needed",
+                    f"mackbot has failed {_ERROR_THRESHOLD} times in a row scanning "
+                    f"{site.name} for {cfg.num_players} players on {cfg.target_date}.\n\n"
+                    f"Last error: {e}\n\n"
+                    f"Remote in and check — scanning will keep retrying.",
+                )
             if session:
                 session.close()
             session = None  # force re-auth on next loop
