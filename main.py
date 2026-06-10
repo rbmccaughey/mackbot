@@ -131,6 +131,11 @@ def main() -> None:
             print("\nStopped.")
             sys.exit(0)
         except Exception as e:
+            if "not able to book this tee time" in str(e):
+                now = datetime.now().strftime("%H:%M:%S")
+                print(f"[{now}] Tee times not open yet. Next check in {cfg.poll_interval_secs}s.")
+                time.sleep(cfg.poll_interval_secs)
+                continue
             consecutive_errors += 1
             print(f"Error on attempt {attempt} ({consecutive_errors} consecutive): {e}")
             if consecutive_errors == _ERROR_THRESHOLD:

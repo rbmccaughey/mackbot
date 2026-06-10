@@ -336,6 +336,28 @@ class TestRunScan:
         assert _scans["cps-ex"]["status"] == "cancelled"
         assert any("Error" in e for e in _scans["cps-ex"]["log"])
 
+    @patch("server.search_tee_times", side_effect=Exception(
+        "GET TeeTimes 400: <p>Sorry, you are not able to book this tee time currently. "
+        "All customers status allows for 4 days in advance. You may book this tee time starting at [9:00 AM].</p>"
+    ))
+    @patch("server.login")
+    def test_not_open_yet_logs_wait_message_and_reuses_session(self, mock_login, mock_search):
+        from server import _run_scan
+        mock_session = MagicMock()
+        mock_session.is_expired.return_value = False
+        mock_login.return_value = mock_session
+        stop = MagicMock()
+        # Two polling iterations before cancel
+        stop.is_set.side_effect = [False, False, True]
+        stop.wait = MagicMock()
+        _scans["cps-not-open"] = _make_scan("cps-not-open", stop)
+        _run_scan("cps-not-open", "u@test.com", "pass", "kananaskis")
+        log = _scans["cps-not-open"]["log"]
+        assert any("not open yet" in e for e in log)
+        assert not any("Error" in e for e in log)
+        # Session must be reused across both iterations — login called exactly once
+        assert mock_login.call_count == 1
+
 
 class TestCreateScanVRPath:
     def test_creates_vr_scan_for_valley_ridge_site(self, client=None):
