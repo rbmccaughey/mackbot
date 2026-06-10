@@ -182,6 +182,10 @@ def _run_scan(scan_id: str, email: str, password: str, site_key: str) -> None:
                 )
 
         except Exception as exc:
+            if "not able to book this tee time" in str(exc):
+                _log(scan_id, f"Tee times not open yet. Next check in {cfg.poll_interval_secs}s.")
+                stop.wait(cfg.poll_interval_secs)
+                continue
             consecutive_errors += 1
             _log(scan_id, f"Error ({consecutive_errors} consecutive): {exc}")
             if consecutive_errors == _ERROR_THRESHOLD:
