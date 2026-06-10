@@ -3,7 +3,6 @@ Filters tee time search results against a BookingConfig.
 A slot matches when:
   - startTime falls within [time_min_hour, time_max_hour)
   - desired num_players is in availableParticipantNo
-  - bookingList is empty (slot not yet taken)
   - courseId is in config.course_ids (or course_ids is empty = any)
 """
 
@@ -21,8 +20,6 @@ def find_matching_slots(slots: list[dict], cfg: BookingConfig) -> list[dict]:
         if hour < cfg.time_min_hour or hour >= cfg.time_max_hour:
             continue
         if cfg.num_players not in slot.get("availableParticipantNo", []):
-            continue
-        if slot.get("bookingList"):
             continue
         if cfg.course_ids and slot.get("courseId") not in cfg.course_ids:
             continue

@@ -108,7 +108,6 @@ All under `https://kananaskisabresidents.cps.golf/onlineres/onlineapi/api/v1/onl
 A slot from `TeeTimes` is considered bookable when all of these hold:
 - `startTime` falls within the configured `[time_min_hour, time_max_hour)` window
 - desired `num_players` appears in `availableParticipantNo`
-- `bookingList` is empty (no existing bookings on the slot)
 - `courseId` matches `config.course_ids` (if filtered)
 
 ## Site constants
