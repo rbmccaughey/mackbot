@@ -6,9 +6,11 @@ the browser's natural cookies, auth context, and TLS fingerprint.
 
 import base64
 import json
+import os
 import random
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional
 
 from playwright.sync_api import sync_playwright, Page
@@ -19,8 +21,16 @@ from config import SiteConfig, KANANASKIS
 _EMAIL_SEL = "input[type='email'], input[name='email'], input[name='Username']"
 _PW_SEL = "input[type='password'], input[name='password'], input[name='Password']"
 
-# sec-ch-ua values matching the declared Chrome 148 / macOS user agent
-_SEC_CH_UA = '"Chromium";v="148", "Google Chrome";v="148", "Not-A.Brand";v="99"'
+# Real Chrome binary — gives Cloudflare the correct TLS fingerprint (JA3/JA4).
+# Playwright's bundled Chromium has a distinct bot fingerprint that Cloudflare detects
+# regardless of JS stealth patches.
+_CHROME_PATH = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+# Persistent browser profile so cf_clearance and browser reputation survive across sessions.
+_PROFILE_DIR = Path.home() / ".mackbot-chrome-profile"
+
+# sec-ch-ua values matching Chrome 149 / macOS
+_SEC_CH_UA = '"Chromium";v="149", "Google Chrome";v="149", "Not-A.Brand";v="99"'
 
 # HTTP-level client hint headers sent with every request
 _CH_UA_HEADERS = {
@@ -323,22 +333,31 @@ def login(email: str, password: str, site: SiteConfig = KANANASKIS, headless: bo
     base_url = site.base_url
     login_url = f"{base_url}/onlineresweb/auth/verify-email"
 
+    _PROFILE_DIR.mkdir(exist_ok=True)
     p = sync_playwright().start()
-    browser = p.chromium.launch(
-        headless=headless,
-        args=["--disable-blink-features=AutomationControlled"],
-    )
-    context = browser.new_context(
-        user_agent=(
+
+    launch_kwargs: dict = {
+        "headless": headless,
+        "args": ["--disable-blink-features=AutomationControlled"],
+        "user_agent": (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/148.0.0.0 Safari/537.36"
+            "Chrome/149.0.0.0 Safari/537.36"
         ),
-        viewport={"width": 1440, "height": 900},
-        locale="en-CA",
-        timezone_id="America/Edmonton",
-        extra_http_headers=_CH_UA_HEADERS,
-    )
+        "viewport": {"width": 1440, "height": 900},
+        "locale": "en-CA",
+        "timezone_id": "America/Edmonton",
+        "extra_http_headers": _CH_UA_HEADERS,
+    }
+    if os.path.exists(_CHROME_PATH):
+        launch_kwargs["executable_path"] = _CHROME_PATH
+        print(f"Using system Chrome: {_CHROME_PATH}")
+    else:
+        print("System Chrome not found — falling back to Playwright Chromium.")
+
+    # launch_persistent_context keeps cf_clearance and browser reputation across restarts.
+    # The returned object is a BrowserContext; there is no separate browser handle.
+    context = p.chromium.launch_persistent_context(str(_PROFILE_DIR), **launch_kwargs)
     page = context.new_page()
     _STEALTH.apply_stealth_sync(page)
 
@@ -417,6 +436,6 @@ def login(email: str, password: str, site: SiteConfig = KANANASKIS, headless: bo
         acct=acct,
         site=site,
         page=page,
-        _browser=browser,
+        _browser=context,
         _playwright=p,
     )
